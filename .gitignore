@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.trae/*
+
+# Playwright
+test-results
+playwright-report
+playwright/.cache
+
+# Test files
+tests/e2e/test-files
