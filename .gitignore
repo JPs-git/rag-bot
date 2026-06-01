@@ -31,3 +31,10 @@ playwright/.cache
 
 # Test files
 tests/e2e/test-files
+
+# Large model files (exceed GitHub 100MB limit)
+public/models/**/*.onnx
+public/models/**/*.model
+
+# Keep directory structure with .gitkeep files
+!public/models/**/.gitkeep

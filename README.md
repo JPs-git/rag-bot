@@ -1,54 +1,85 @@
-# React + TypeScript + Vite
+# RAG Bot - 浏览器端 RAG 文档问答助手
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+一个基于浏览器的 RAG (检索增强生成) 文档问答应用，完全在客户端运行。
 
-Currently, two official plugins are available:
+## 功能特性
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 上传 .txt 和 .md 文档
+- 本地 ONNX 模型进行嵌入（无需后端）
+- 内存向量存储与相似度检索
+- OpenAI API 集成用于回答生成
+- 纯浏览器端运行，隐私安全
 
-## Expanding the ESLint configuration
+## 快速开始
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 前置条件
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+- Node.js 18+
+- npm 或 yarn
+
+### 安装步骤
+
+1. 安装依赖
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+2. 下载嵌入模型（必需）
+```bash
+npm run download-model
 ```
+
+3. 启动开发服务器
+```bash
+npm run dev
+```
+
+4. 在浏览器中打开显示的地址（通常是 http://localhost:5173）
+
+## 可用命令
+
+- `npm run dev` - 启动开发服务器（支持 HMR）
+- `npm run build` - 构建生产版本
+- `npm run preview` - 预览生产构建
+- `npm run lint` - 运行 ESLint 检查
+- `npm run download-model` - 下载嵌入模型到 public/models/
+- `npm run test` - 运行 Vitest 测试
+
+## 项目架构
+
+```
+src/
+├── main.tsx                    # 入口文件
+├── App.tsx                     # 主应用布局
+├── context/AppContext.tsx      # 应用状态管理
+├── types/index.ts              # TypeScript 类型定义
+├── config/performance.ts       # 性能配置
+├── services/
+│   ├── chunking/index.ts       # 文档分块策略
+│   ├── embedding/index.ts      # 嵌入服务（本地 ONNX 模型）
+│   ├── retrieval/index.ts      # 检索策略
+│   └── vectorStore/index.ts    # 向量存储
+└── components/
+    ├── ChatHistory.tsx         # 聊天历史
+    ├── ChatInput.tsx           # 聊天输入
+    ├── ConfigPanel.tsx         # 配置面板
+    └── FileUploader.tsx        # 文件上传
+```
+
+## 技术栈
+
+- **UI**: React 19, Ant Design, Ant Design X
+- **嵌入**: @huggingface/transformers (浏览器 ONNX Runtime)
+- **样式**: Tailwind CSS v4
+- **构建**: Vite 6
+- **测试**: Vitest
+
+## 模型说明
+
+嵌入模型使用 [Xenova/multilingual-e5-small](https://huggingface.co/Xenova/multilingual-e5-small)，支持多语言文本嵌入。
+
+由于模型文件较大（~118MB），不直接提交到 Git 仓库。首次使用前请运行 `npm run download-model` 下载模型文件。
+
+## License
+
+MIT
