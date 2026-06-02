@@ -23,7 +23,7 @@ export interface ChunkConfig {
 
 export interface ChunkingStrategy {
   name: string;
-  chunk(document: string, config: ChunkConfig): Chunk[];
+  chunk(document: Document, config: ChunkConfig): Chunk[];
 }
 
 export interface Vector {
@@ -68,6 +68,7 @@ export interface AppConfig {
 
 export interface AppState {
   documents: Document[];
+  chunks: Chunk[];
   messages: Message[];
   config: AppConfig;
   isLoading: boolean;
@@ -77,6 +78,7 @@ export interface AppState {
 
 export type AppAction =
   | { type: "ADD_DOCUMENTS"; payload: Document[] }
+  | { type: "ADD_CHUNKS"; payload: Chunk[] }
   | { type: "ADD_MESSAGE"; payload: Message }
   | {
       type: "UPDATE_MESSAGE";

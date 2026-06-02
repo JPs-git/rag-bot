@@ -6,6 +6,7 @@ import { FileUploader } from '@/components/FileUploader';
 import { ChatHistory } from '@/components/ChatHistory';
 import { ChatInput } from '@/components/ChatInput';
 import { ConfigPanel } from '@/components/ConfigPanel';
+import { DocumentPanel } from '@/components/DocumentPanel';
 import { FileText, Bot, Settings, AlertCircle } from 'lucide-react';
 
 function ChatPanel() {
@@ -109,12 +110,15 @@ function Sidebar() {
 function AppContent() {
   return (
     <Flex style={{ height: '100vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)' }} className="p-6">
-      <Flex style={{ maxWidth: 1400, width: '100%', margin: '0 auto' }} gap={24}>
+      <Flex style={{ maxWidth: 1500, width: '100%', margin: '0 auto' }} gap={24}>
         <Flex vertical style={{ width: 320 }} gap={16}>
           <Sidebar />
         </Flex>
         <Flex flex={1} style={{ minWidth: 0 }}>
           <ChatPanel />
+        </Flex>
+        <Flex vertical style={{ width: 360 }}>
+          <DocumentPanel />
         </Flex>
       </Flex>
     </Flex>

@@ -27,6 +27,7 @@ const defaultConfig: AppConfig = {
 
 const initialState: AppState = {
   documents: [],
+  chunks: [],
   messages: [],
   config: defaultConfig,
   isLoading: false,
@@ -38,6 +39,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case "ADD_DOCUMENTS":
       return { ...state, documents: [...state.documents, ...action.payload] };
+
+    case "ADD_CHUNKS":
+      return { ...state, chunks: [...state.chunks, ...action.payload] };
 
     case "ADD_MESSAGE":
       return { ...state, messages: [...state.messages, action.payload] };
@@ -70,7 +74,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
     case "CLEAR_SESSION":
       vectorStore.clear();
-      return { ...initialState, config: state.config };
+      return { ...initialState, config: state.config, chunks: [] };
 
     default:
       return state;
@@ -178,6 +182,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const allChunks = chunkResults.flatMap((result) => result.chunks);
 
       if (allChunks.length > 0) {
+        dispatch({ type: "ADD_CHUNKS", payload: allChunks });
         await vectorStore.addChunks(allChunks);
       }
 

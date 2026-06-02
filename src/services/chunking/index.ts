@@ -25,13 +25,13 @@ export class ChunkService {
     const document: Document = {
       id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: file.name,
-      content: "",
+      content,
       type: file.name.endsWith(".md") ? "md" : "txt",
       size: file.size,
       uploadedAt: new Date(),
     };
 
-    const chunks = this.strategy.chunk(content, chunkConfig);
+    const chunks = this.strategy.chunk(document, chunkConfig);
 
     return { document, chunks };
   }
@@ -62,17 +62,20 @@ export const defaultChunkConfig: ChunkConfig = {
 export class RecursiveCharacterChunking implements ChunkingStrategy {
   name = "recursive-character";
 
-  chunk(document: string, config: ChunkConfig): Chunk[] {
+  chunk(document: Document, config: ChunkConfig): Chunk[] {
     const { chunkSize, chunkOverlap, separators } = config;
     const chunks: Chunk[] = [];
     let currentIndex = 0;
     let chunkId = 0;
 
-    while (currentIndex < document.length) {
-      let endIndex = Math.min(currentIndex + chunkSize, document.length);
-      let chunkContent = document.slice(currentIndex, endIndex);
+    while (currentIndex < document.content.length) {
+      let endIndex = Math.min(
+        currentIndex + chunkSize,
+        document.content.length,
+      );
+      let chunkContent = document.content.slice(currentIndex, endIndex);
 
-      if (endIndex < document.length) {
+      if (endIndex < document.content.length) {
         let foundSeparator = false;
 
         for (const separator of separators) {
@@ -82,7 +85,7 @@ export class RecursiveCharacterChunking implements ChunkingStrategy {
             separatorIndex > chunkSize - chunkOverlap
           ) {
             endIndex = currentIndex + separatorIndex + separator.length;
-            chunkContent = document.slice(currentIndex, endIndex);
+            chunkContent = document.content.slice(currentIndex, endIndex);
             foundSeparator = true;
             break;
           }
@@ -92,14 +95,14 @@ export class RecursiveCharacterChunking implements ChunkingStrategy {
           const spaceIndex = chunkContent.lastIndexOf(" ");
           if (spaceIndex !== -1 && spaceIndex > chunkSize - chunkOverlap) {
             endIndex = currentIndex + spaceIndex + 1;
-            chunkContent = document.slice(currentIndex, endIndex);
+            chunkContent = document.content.slice(currentIndex, endIndex);
           }
         }
       }
 
       chunks.push({
         id: `chunk-${chunkId++}`,
-        documentId: "",
+        documentId: document.id,
         content: chunkContent.trim(),
         startIndex: currentIndex,
         endIndex: endIndex,

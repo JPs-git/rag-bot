@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ChunkService, RecursiveCharacterChunking, defaultChunkConfig } from "./index";
-import type { ChunkConfig } from "@/types";
+import {
+  ChunkService,
+  RecursiveCharacterChunking,
+  defaultChunkConfig,
+} from "./index";
+import type { ChunkConfig, Document } from "@/types";
 
 describe("RecursiveCharacterChunking", () => {
   let chunking: RecursiveCharacterChunking;
@@ -14,19 +18,35 @@ describe("RecursiveCharacterChunking", () => {
   });
 
   it("should return empty array for empty document", () => {
-    const result = chunking.chunk("", defaultChunkConfig);
+    const document: Document = {
+      id: "test-doc",
+      name: "test.txt",
+      content: "",
+      type: "txt",
+      size: 0,
+      uploadedAt: new Date(),
+    };
+    const result = chunking.chunk(document, defaultChunkConfig);
     expect(result).toEqual([]);
   });
 
   it("should split document into chunks of specified size", () => {
     const text = "a".repeat(1000);
+    const document: Document = {
+      id: "test-doc",
+      name: "test.txt",
+      content: text,
+      type: "txt",
+      size: text.length,
+      uploadedAt: new Date(),
+    };
     const config: ChunkConfig = {
       chunkSize: 100,
       chunkOverlap: 10,
       separators: ["\n\n", "\n", " "],
     };
 
-    const chunks = chunking.chunk(text, config);
+    const chunks = chunking.chunk(document, config);
 
     expect(chunks.length).toBeGreaterThan(1);
     chunks.forEach((chunk) => {
@@ -36,13 +56,21 @@ describe("RecursiveCharacterChunking", () => {
 
   it("should respect separator priority", () => {
     const text = "Paragraph1\n\nParagraph2\n\nParagraph3";
+    const document: Document = {
+      id: "test-doc",
+      name: "test.txt",
+      content: text,
+      type: "txt",
+      size: text.length,
+      uploadedAt: new Date(),
+    };
     const config: ChunkConfig = {
       chunkSize: 20,
       chunkOverlap: 5,
       separators: ["\n\n", "\n", " "],
     };
 
-    const chunks = chunking.chunk(text, config);
+    const chunks = chunking.chunk(document, config);
 
     expect(chunks.length).toBeGreaterThan(0);
     const firstChunkContent = chunks[0].content;
@@ -51,26 +79,42 @@ describe("RecursiveCharacterChunking", () => {
 
   it("should handle Chinese text with Chinese separators", () => {
     const text = "第一段内容。第二段内容！第三段内容？";
+    const document: Document = {
+      id: "test-doc",
+      name: "test.txt",
+      content: text,
+      type: "txt",
+      size: text.length,
+      uploadedAt: new Date(),
+    };
     const config: ChunkConfig = {
       chunkSize: 10,
       chunkOverlap: 2,
       separators: ["\n\n", "\n", "。", "！", "？", "；", "、", " "],
     };
 
-    const chunks = chunking.chunk(text, config);
+    const chunks = chunking.chunk(document, config);
 
     expect(chunks.length).toBeGreaterThan(0);
   });
 
   it("should set correct chunk indices", () => {
     const text = "Hello World Test";
+    const document: Document = {
+      id: "test-doc",
+      name: "test.txt",
+      content: text,
+      type: "txt",
+      size: text.length,
+      uploadedAt: new Date(),
+    };
     const config: ChunkConfig = {
       chunkSize: 5,
       chunkOverlap: 1,
       separators: [" "],
     };
 
-    const chunks = chunking.chunk(text, config);
+    const chunks = chunking.chunk(document, config);
 
     expect(chunks.length).toBeGreaterThan(0);
     chunks.forEach((chunk, index) => {
@@ -80,13 +124,21 @@ describe("RecursiveCharacterChunking", () => {
 
   it("should trim whitespace from chunk content", () => {
     const text = "  Hello   World  ";
+    const document: Document = {
+      id: "test-doc",
+      name: "test.txt",
+      content: text,
+      type: "txt",
+      size: text.length,
+      uploadedAt: new Date(),
+    };
     const config: ChunkConfig = {
       chunkSize: 50,
       chunkOverlap: 0,
       separators: [" "],
     };
 
-    const chunks = chunking.chunk(text, config);
+    const chunks = chunking.chunk(document, config);
 
     expect(chunks.length).toBeGreaterThan(0);
     chunks.forEach((chunk) => {
@@ -96,13 +148,21 @@ describe("RecursiveCharacterChunking", () => {
 
   it("should handle document shorter than chunk size", () => {
     const text = "Short text";
+    const document: Document = {
+      id: "test-doc",
+      name: "test.txt",
+      content: text,
+      type: "txt",
+      size: text.length,
+      uploadedAt: new Date(),
+    };
     const config: ChunkConfig = {
       chunkSize: 100,
       chunkOverlap: 10,
       separators: ["\n\n", "\n", " "],
     };
 
-    const chunks = chunking.chunk(text, config);
+    const chunks = chunking.chunk(document, config);
 
     expect(chunks.length).toBe(1);
     expect(chunks[0].content).toBe(text);
@@ -110,13 +170,21 @@ describe("RecursiveCharacterChunking", () => {
 
   it("should handle text with no separators", () => {
     const text = "abcdefghij";
+    const document: Document = {
+      id: "test-doc",
+      name: "test.txt",
+      content: text,
+      type: "txt",
+      size: text.length,
+      uploadedAt: new Date(),
+    };
     const config: ChunkConfig = {
       chunkSize: 5,
       chunkOverlap: 1,
       separators: [],
     };
 
-    const chunks = chunking.chunk(text, config);
+    const chunks = chunking.chunk(document, config);
 
     expect(chunks.length).toBe(2);
   });
@@ -139,7 +207,8 @@ describe("ChunkService", () => {
   });
 
   it("should chunk a single file correctly", async () => {
-    const fileContent = "Test document content that should be chunked into smaller pieces";
+    const fileContent =
+      "Test document content that should be chunked into smaller pieces";
     const file = new File([fileContent], "test.txt", { type: "text/plain" });
 
     const config: ChunkConfig = {
@@ -189,8 +258,14 @@ describe("ChunkService", () => {
 
     expect(results.length).toBe(2);
     expect(progressCallback).toHaveBeenCalledTimes(2);
-    expect(progressCallback).toHaveBeenCalledWith("test1.txt", expect.any(Number));
-    expect(progressCallback).toHaveBeenCalledWith("test2.txt", expect.any(Number));
+    expect(progressCallback).toHaveBeenCalledWith(
+      "test1.txt",
+      expect.any(Number),
+    );
+    expect(progressCallback).toHaveBeenCalledWith(
+      "test2.txt",
+      expect.any(Number),
+    );
   });
 
   it("should handle empty files array", async () => {
@@ -208,7 +283,9 @@ describe("ChunkService", () => {
     const file = new File(["Some content"], "test.txt", { type: "text/plain" });
     const result = await chunkService.chunk(file, defaultChunkConfig);
 
-    expect(result.chunks.every(chunk => chunk.documentId === "")).toBe(true);
+    expect(
+      result.chunks.every((chunk) => chunk.documentId === result.document.id),
+    ).toBe(true);
   });
 });
 
