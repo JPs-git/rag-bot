@@ -11,6 +11,7 @@ import { ChunkService } from "@/services/chunking";
 import { defaultRetrievalConfig } from "@/services/retrieval";
 import { vectorStore } from "@/services/vectorStore";
 import { embeddingService } from "@/services/embedding";
+import { llmService } from "@/services/llm";
 import { PERFORMANCE_CONFIG } from "@/config/performance";
 
 const defaultConfig: AppConfig = {
@@ -207,52 +208,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           state.config.retrievalConfig.similarityThreshold,
         );
 
-        const context = retrievedChunks
-          .map(
-            (rc) =>
-              `[文档片段]\n${rc.chunk.content}\n[相似度: ${(rc.similarity * 100).toFixed(2)}%]`,
-          )
-          .join("\n\n");
-
-        const prompt = `基于以下文档内容回答问题：\n\n${context}\n\n问题：${content}\n\n请用中文回答，尽量简洁。`;
-
-        let answer = "";
-        const sources = retrievedChunks;
-
-        if (state.config.openaiApiKey) {
-          const response = await fetch(
-            "https://api.openai.com/v1/chat/completions",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${state.config.openaiApiKey}`,
-              },
-              body: JSON.stringify({
-                model: "gpt-3.5-turbo",
-                messages: [{ role: "user", content: prompt }],
-                stream: false,
-              }),
-            },
-          );
-
-          if (!response.ok) {
-            throw new Error("API请求失败");
-          }
-
-          const data = await response.json();
-          answer = data.choices[0]?.message?.content || "无法回答该问题";
-        } else {
-          answer = `这是一个演示回复。\n\n检索到的相关文档片段（Top-${retrievedChunks.length}）：\n\n${retrievedChunks
-            .map((rc, i) => `${i + 1}. ${rc.chunk.content.slice(0, 100)}...`)
-            .join("\n\n")}`;
-        }
+        const llmResponse = await llmService.generate(
+          content,
+          retrievedChunks,
+          {
+            apiKey: state.config.openaiApiKey,
+          },
+        );
 
         const assistantMessage: Message = {
           id: `msg-${Date.now()}`,
           role: "assistant",
-          content: answer,
-          sources,
+          content: llmResponse.content,
+          sources: retrievedChunks,
           timestamp: new Date(),
         };
         dispatch({ type: "ADD_MESSAGE", payload: assistantMessage });

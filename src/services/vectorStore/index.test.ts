@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { VectorStore } from "./index";
-import { CosineSimilarityRetrieval, TopKRetrieval } from "../retrieval";
+import { TopKRetrieval } from "../retrieval";
 import type { Chunk } from "@/types";
 
 vi.mock("../embedding", () => ({
@@ -10,7 +10,7 @@ vi.mock("../embedding", () => ({
         texts.map(() => [0.5, 0.5, 0.5, 0.5, 0.5])
       );
     }),
-    embedSingle: vi.fn().mockImplementation((text: string) => {
+    embedSingle: vi.fn().mockImplementation((_text: string) => {
       return Promise.resolve([0.5, 0.5, 0.5, 0.5, 0.5]);
     }),
     isInitialized: vi.fn().mockReturnValue(true),
