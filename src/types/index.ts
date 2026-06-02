@@ -88,4 +88,5 @@ export type AppAction =
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_EMBEDDING"; payload: boolean }
   | { type: "SET_ERROR"; payload: string | null }
-  | { type: "CLEAR_SESSION" };
+  | { type: "CLEAR_SESSION" }
+  | { type: "DELETE_DOCUMENT"; payload: string };

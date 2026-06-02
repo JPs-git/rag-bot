@@ -10,7 +10,7 @@ import { PERFORMANCE_CONFIG } from "@/config/performance";
 import type { UploadFile } from "antd";
 
 export function FileUploader() {
-  const { state, uploadDocuments, isModelReady } = useApp();
+  const { state, uploadDocuments, deleteDocument, isModelReady } = useApp();
 
   const fileList: UploadFile[] = state.documents.map((doc) => ({
     uid: doc.id,
@@ -100,6 +100,7 @@ export function FileUploader() {
                   size="small"
                   icon={<DeleteOutlined />}
                   key="delete"
+                  onClick={() => deleteDocument(item.uid!)}
                 />,
               ]}
             >

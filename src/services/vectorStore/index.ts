@@ -111,6 +111,17 @@ export class VectorStore {
   setRetrievalStrategy(strategy: RetrievalStrategy): void {
     this.retrievalStrategy = strategy;
   }
+
+  deleteDocument(documentId: string): void {
+    const chunkIds = this.chunks
+      .filter((chunk) => chunk.documentId === documentId)
+      .map((chunk) => chunk.id);
+
+    this.chunks = this.chunks.filter((chunk) => chunk.documentId !== documentId);
+    this.vectors = this.vectors.filter((vector) => !chunkIds.includes(vector.chunkId));
+
+    console.log(`[VS] Deleted ${chunkIds.length} chunks for document ${documentId}`);
+  }
 }
 
 export const vectorStore = new VectorStore();

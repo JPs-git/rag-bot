@@ -76,6 +76,15 @@ function appReducer(state: AppState, action: AppAction): AppState {
       vectorStore.clear();
       return { ...initialState, config: state.config, chunks: [] };
 
+    case "DELETE_DOCUMENT":
+      return {
+        ...state,
+        documents: state.documents.filter((doc) => doc.id !== action.payload),
+        chunks: state.chunks.filter(
+          (chunk) => chunk.documentId !== action.payload,
+        ),
+      };
+
     default:
       return state;
   }
@@ -85,6 +94,7 @@ interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
   uploadDocuments: (files: File[]) => Promise<void>;
+  deleteDocument: (documentId: string) => void;
   sendMessage: (content: string) => Promise<void>;
   updateConfig: (config: Partial<AppConfig>) => void;
   clearSession: () => void;
@@ -253,12 +263,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: "CLEAR_SESSION" });
   }, []);
 
+  const deleteDocument = useCallback((documentId: string) => {
+    dispatch({ type: "DELETE_DOCUMENT", payload: documentId });
+    vectorStore.deleteDocument(documentId);
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
         state,
         dispatch,
         uploadDocuments,
+        deleteDocument,
         sendMessage,
         updateConfig,
         clearSession,
