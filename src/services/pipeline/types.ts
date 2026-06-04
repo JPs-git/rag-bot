@@ -71,6 +71,15 @@ export interface StoreResult {
   vectorCount: number;
 }
 
+export interface Document {
+  id: string;
+  name: string;
+  content: string;
+  type: 'txt' | 'md';
+  size: number;
+  uploadedAt: Date;
+}
+
 export interface Chunk {
   id: string;
   documentId: string;

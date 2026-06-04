@@ -61,6 +61,7 @@ export interface Message {
 
 export interface AppConfig {
   chunkConfig: ChunkConfig;
+  chunkingStrategy: string;
   retrievalConfig: RetrievalConfig;
   openaiApiKey: string;
   embeddingModel: string;

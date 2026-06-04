@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   ChunkService,
   RecursiveCharacterChunking,
+  FixedSizeChunking,
   defaultChunkConfig,
 } from "./index";
 import type { ChunkConfig, Document } from "@/types";
@@ -286,6 +287,99 @@ describe("ChunkService", () => {
     expect(
       result.chunks.every((chunk) => chunk.documentId === result.document.id),
     ).toBe(true);
+  });
+});
+
+describe("FixedSizeChunking", () => {
+  let chunking: FixedSizeChunking;
+
+  beforeEach(() => {
+    chunking = new FixedSizeChunking();
+  });
+
+  it("should have correct name", () => {
+    expect(chunking.name).toBe("fixed-size");
+  });
+
+  it("should return empty array for empty document", () => {
+    const document: Document = {
+      id: "test-doc",
+      name: "test.txt",
+      content: "",
+      type: "txt",
+      size: 0,
+      uploadedAt: new Date(),
+    };
+    const result = chunking.chunk(document, defaultChunkConfig);
+    expect(result).toEqual([]);
+  });
+
+  it("should not produce many small chunks near the end", () => {
+    const text = "a".repeat(472);
+    const document: Document = {
+      id: "test-doc",
+      name: "test.txt",
+      content: text,
+      type: "txt",
+      size: text.length,
+      uploadedAt: new Date(),
+    };
+    const config: ChunkConfig = {
+      chunkSize: 500,
+      chunkOverlap: 50,
+      separators: [],
+    };
+
+    const chunks = chunking.chunk(document, config);
+
+    expect(chunks.length).toBeLessThanOrEqual(2);
+    expect(chunks.length).toBeGreaterThan(0);
+  });
+
+  it("should handle content shorter than chunkSize", () => {
+    const text = "Short text";
+    const document: Document = {
+      id: "test-doc",
+      name: "test.txt",
+      content: text,
+      type: "txt",
+      size: text.length,
+      uploadedAt: new Date(),
+    };
+    const config: ChunkConfig = {
+      chunkSize: 100,
+      chunkOverlap: 10,
+      separators: [],
+    };
+
+    const chunks = chunking.chunk(document, config);
+
+    expect(chunks.length).toBe(1);
+    expect(chunks[0].content).toBe(text);
+  });
+
+  it("should handle chunking with overlap correctly", () => {
+    const text = "abcdefghijklmnopqrstuvwxyz";
+    const document: Document = {
+      id: "test-doc",
+      name: "test.txt",
+      content: text,
+      type: "txt",
+      size: text.length,
+      uploadedAt: new Date(),
+    };
+    const config: ChunkConfig = {
+      chunkSize: 10,
+      chunkOverlap: 2,
+      separators: [],
+    };
+
+    const chunks = chunking.chunk(document, config);
+
+    expect(chunks.length).toBe(3);
+    expect(chunks[0].content).toBe("abcdefghij");
+    expect(chunks[1].content).toBe("ijklmnopqr");
+    expect(chunks[2].content).toBe("qrstuvwxyz");
   });
 });
 

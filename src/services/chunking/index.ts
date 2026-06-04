@@ -13,8 +13,8 @@ export class ChunkService {
   }
 
   private getStrategy(name: string): ChunkingStrategy {
-    if (name === "recursive-character") {
-      return new RecursiveCharacterChunking();
+    if (name === "fixed-size") {
+      return new FixedSizeChunking();
     }
     return new RecursiveCharacterChunking();
   }
@@ -115,8 +115,63 @@ export class RecursiveCharacterChunking implements ChunkingStrategy {
   }
 }
 
+export class FixedSizeChunking implements ChunkingStrategy {
+  name = "fixed-size";
+
+  chunk(document: Document, config: ChunkConfig): Chunk[] {
+    const { chunkSize, chunkOverlap } = config;
+    const chunks: Chunk[] = [];
+    let currentIndex = 0;
+    let chunkId = 0;
+
+    if (document.content.length <= chunkSize) {
+      if (document.content.length > 0) {
+        chunks.push({
+          id: `chunk-${chunkId++}`,
+          documentId: document.id,
+          content: document.content.trim(),
+          startIndex: 0,
+          endIndex: document.content.length,
+        });
+      }
+      return chunks;
+    }
+
+    while (currentIndex < document.content.length) {
+      const endIndex = Math.min(
+        currentIndex + chunkSize,
+        document.content.length,
+      );
+
+      const chunkContent = document.content.slice(currentIndex, endIndex);
+
+      chunks.push({
+        id: `chunk-${chunkId++}`,
+        documentId: document.id,
+        content: chunkContent.trim(),
+        startIndex: currentIndex,
+        endIndex: endIndex,
+      });
+
+      if (endIndex >= document.content.length) {
+        break;
+      }
+
+      const remainingAfter = document.content.length - endIndex;
+      if (remainingAfter < chunkOverlap) {
+        break;
+      }
+
+      currentIndex = endIndex - chunkOverlap;
+    }
+
+    return chunks;
+  }
+}
+
 export const chunkingStrategies: ChunkingStrategy[] = [
   new RecursiveCharacterChunking(),
+  new FixedSizeChunking(),
 ];
 
 export function getChunkingStrategy(

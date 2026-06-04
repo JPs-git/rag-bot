@@ -12,10 +12,11 @@ import type {
   Chunk,
   PipelineStageType,
   ChunkConfig,
+  Document,
 } from './types';
 import { embeddingService } from '../embedding';
 import { VectorStore } from '../vectorStore';
-import { defaultChunkConfig } from '../chunking';
+import { defaultChunkConfig, RecursiveCharacterChunking, FixedSizeChunking, type ChunkingStrategy } from '../chunking';
 
 export class UploadStage implements PipelineStage<UploadResult, UploadResult> {
   type: PipelineStageType = 'upload';
@@ -130,15 +131,37 @@ export class DeduplicateStage implements PipelineStage<HashResult, DeduplicateRe
 
 export class ChunkStage implements StrategyPipelineStage<UploadResult, ChunkResult> {
   type: PipelineStageType = 'chunk';
-  private strategyName: string = 'recursive-character';
+  private strategy: ChunkingStrategy;
+  private strategyName: string;
   private chunkConfig: ChunkConfig;
 
-  constructor(chunkConfig: ChunkConfig = defaultChunkConfig) {
+  constructor(chunkConfig: ChunkConfig = defaultChunkConfig, strategyName: string = 'recursive-character') {
     this.chunkConfig = chunkConfig;
+    this.strategyName = strategyName;
+    this.strategy = this.getStrategyByName(strategyName);
+  }
+
+  private getStrategyByName(name: string): ChunkingStrategy {
+    if (name === 'fixed-size') {
+      return new FixedSizeChunking();
+    }
+    if (name === 'recursive-character') {
+      return new RecursiveCharacterChunking();
+    }
+    // 对于未识别的策略，创建一个包装类，保持名称不变但行为默认
+    class WrapperStrategy implements ChunkingStrategy {
+      name = name;
+      private base = new RecursiveCharacterChunking();
+      chunk(document: Document, config: ChunkConfig) {
+        return this.base.chunk(document, config);
+      }
+    }
+    return new WrapperStrategy();
   }
 
   setStrategy(strategyName: string): void {
     this.strategyName = strategyName;
+    this.strategy = this.getStrategyByName(strategyName);
   }
 
   getCurrentStrategy(): string {
@@ -155,66 +178,31 @@ export class ChunkStage implements StrategyPipelineStage<UploadResult, ChunkResu
 
   shouldExecute(state: PipelineState): boolean {
     const stageState = state.stages.chunk;
-    return stageState.status !== 'completed' || stageState.strategy !== this.strategyName;
+    return stageState.status !== 'completed' || stageState.strategy !== this.strategy.name;
   }
 
   async execute(input: UploadResult, context: PipelineContext): Promise<ChunkResult> {
-    context.onProgress?.(this.type, 0, `开始分块 (策略: ${this.strategyName}, 大小: ${this.chunkConfig.chunkSize})`);
+    context.onProgress?.(this.type, 0, `开始分块 (策略: ${this.strategy.name}, 大小: ${this.chunkConfig.chunkSize})`);
     
     if (context.abortSignal?.aborted) {
       throw new Error('分块阶段已取消');
     }
 
     const documentId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const document: Document = {
+      id: documentId,
+      name: input.fileName,
+      content: input.content,
+      type: input.type,
+      size: input.size,
+      uploadedAt: new Date(),
+    };
     
-    const chunks: Chunk[] = [];
-    const { chunkSize, chunkOverlap, separators } = this.chunkConfig;
-    let currentIndex = 0;
-    let chunkId = 0;
-
-    while (currentIndex < input.content.length) {
-      if (context.abortSignal?.aborted) {
-        throw new Error('分块阶段已取消');
-      }
-
-      let endIndex = Math.min(currentIndex + chunkSize, input.content.length);
-      let chunkContent = input.content.slice(currentIndex, endIndex);
-
-      if (endIndex < input.content.length) {
-        let foundSeparator = false;
-
-        for (const separator of separators) {
-          const separatorIndex = chunkContent.lastIndexOf(separator);
-          if (separatorIndex !== -1 && separatorIndex > chunkSize - chunkOverlap) {
-            endIndex = currentIndex + separatorIndex + separator.length;
-            chunkContent = input.content.slice(currentIndex, endIndex);
-            foundSeparator = true;
-            break;
-          }
-        }
-
-        if (!foundSeparator) {
-          const spaceIndex = chunkContent.lastIndexOf(' ');
-          if (spaceIndex !== -1 && spaceIndex > chunkSize - chunkOverlap) {
-            endIndex = currentIndex + spaceIndex + 1;
-            chunkContent = input.content.slice(currentIndex, endIndex);
-          }
-        }
-      }
-
-      chunks.push({
-        id: `chunk-${documentId}-${chunkId++}`,
-        documentId,
-        content: chunkContent.trim(),
-        startIndex: currentIndex,
-        endIndex: endIndex,
-      });
-
-      currentIndex = endIndex;
-
-      const progress = Math.min((currentIndex / input.content.length) * 100, 95);
-      context.onProgress?.(this.type, Math.round(progress), `已分块 ${chunks.length} 个`);
-    }
+    const chunks = this.strategy.chunk(document, this.chunkConfig);
+    
+    chunks.forEach((chunk, index) => {
+      chunk.id = `chunk-${documentId}-${index}`;
+    });
 
     context.onProgress?.(this.type, 100, `分块完成，共 ${chunks.length} 个`);
 
@@ -228,7 +216,7 @@ export class ChunkStage implements StrategyPipelineStage<UploadResult, ChunkResu
   }
 
   getDescription(): string {
-    return `文本分块 (${this.strategyName})`;
+    return `文本分块 (${this.strategy.name})`;
   }
 }
 
@@ -353,11 +341,11 @@ export class StoreStage implements PipelineStage<EmbeddingResult, StoreResult> {
   }
 }
 
-export const createDefaultStages = (vectorStore: VectorStore, chunkConfig?: ChunkConfig): PipelineStage[] => [
+export const createDefaultStages = (vectorStore: VectorStore, chunkConfig?: ChunkConfig, strategyName?: string): PipelineStage[] => [
   new UploadStage(),
   new HashStage(),
   new DeduplicateStage(vectorStore),
-  new ChunkStage(chunkConfig || defaultChunkConfig),
+  new ChunkStage(chunkConfig || defaultChunkConfig, strategyName),
   new EmbedStage(),
   new StoreStage(vectorStore),
 ];

@@ -1,9 +1,14 @@
-import { Form, Input, InputNumber, Slider, Button, Space, Popconfirm } from 'antd';
+import { Form, Input, InputNumber, Slider, Button, Space, Popconfirm, Select } from 'antd';
 import { ReloadOutlined, ClearOutlined } from '@ant-design/icons';
 import { useApp } from '@/context/AppContext';
 
 export function ConfigPanel() {
   const { state, updateConfig, clearSession } = useApp();
+
+  const strategyOptions = [
+    { label: '递归字符分割 (推荐)', value: 'recursive-character' },
+    { label: '固定大小分割', value: 'fixed-size' },
+  ];
 
   return (
     <div className="space-y-4">
@@ -26,6 +31,15 @@ export function ConfigPanel() {
                 retrievalConfig: { ...state.config.retrievalConfig, topK: value },
               })
             }
+          />
+        </Form.Item>
+
+        <Form.Item label="分块策略">
+          <Select
+            value={state.config.chunkingStrategy}
+            onChange={(value) => updateConfig({ chunkingStrategy: value })}
+            options={strategyOptions}
+            style={{ width: '100%' }}
           />
         </Form.Item>
 

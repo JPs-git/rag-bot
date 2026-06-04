@@ -25,6 +25,7 @@ const defaultConfig: AppConfig = {
     chunkOverlap: PERFORMANCE_CONFIG.CHUNK_OVERLAP,
     separators: ["\n\n", "\n", "。", "！", "？", "；", "、", " "],
   },
+  chunkingStrategy: "recursive-character",
   retrievalConfig: defaultRetrievalConfig,
   openaiApiKey: "",
   embeddingModel: "Xenova/all-MiniLM-L6-v2",
@@ -100,6 +101,7 @@ interface AppContextType {
   dispatch: React.Dispatch<AppAction>;
   uploadDocuments: (files: File[]) => Promise<UploadResult>;
   deleteDocument: (documentId: string) => void;
+  rechunkDocument: (documentId: string) => Promise<void>;
   sendMessage: (content: string) => Promise<void>;
   updateConfig: (config: Partial<AppConfig>) => void;
   clearSession: () => void;
@@ -182,10 +184,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         throw new Error(`向量存储已满，请先清除会话`);
       }
 
-      dispatch({ type: "SET_EMBEDDING", payload: true });
+      dispatch({ type: 'SET_EMBEDDING', payload: true });
 
-      const stages = createDefaultStages(vectorStore, state.config.chunkConfig);
-      const pipeline = new Pipeline(stages);
+    const stages = createDefaultStages(vectorStore, state.config.chunkConfig, state.config.chunkingStrategy);
+    const pipeline = new Pipeline(stages);
 
       const result: UploadResult = {
         successCount: 0,
@@ -331,6 +333,85 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     vectorStore.deleteDocument(documentId);
   }, []);
 
+  const rechunkDocument = useCallback(
+    async (documentId: string): Promise<void> => {
+      if (!isModelReady) {
+        throw new Error("模型正在加载中，请稍候...");
+      }
+
+      const document = state.documents.find((doc) => doc.id === documentId);
+      if (!document) {
+        throw new Error("文档不存在");
+      }
+
+      dispatch({ type: "SET_ERROR", payload: null });
+      dispatch({ type: "SET_EMBEDDING", payload: true });
+
+      try {
+        vectorStore.deleteDocument(documentId);
+
+        dispatch({ type: "DELETE_DOCUMENT", payload: documentId });
+
+        const file = new File([document.content], document.name, {
+          type: document.type === "md" ? "text/markdown" : "text/plain",
+        });
+
+        const stages = createDefaultStages(
+          vectorStore,
+          state.config.chunkConfig,
+          state.config.chunkingStrategy,
+        );
+        const pipeline = new Pipeline(stages);
+
+        const onProgress = (
+          stage: PipelineStageType,
+          progress: number,
+          message?: string,
+        ) => {
+          console.log(`[Pipeline] ${stage}: ${progress}% - ${message}`);
+        };
+
+        const pipelineState = await pipeline.start(file, onProgress);
+
+        const chunkOutput = pipelineState.stages.chunk.output as {
+          documentId: string;
+          chunks: {
+            id: string;
+            documentId: string;
+            content: string;
+            startIndex: number;
+            endIndex: number;
+          }[];
+        };
+
+        if (chunkOutput) {
+          const newDocument = {
+            id: chunkOutput.documentId,
+            name: document.name,
+            content: document.content,
+            type: document.type,
+            size: document.size,
+            uploadedAt: new Date(),
+          };
+          dispatch({ type: "ADD_DOCUMENTS", payload: [newDocument] });
+          dispatch({ type: "ADD_CHUNKS", payload: chunkOutput.chunks });
+        }
+
+        console.log(`[Rechunk] 文档 ${document.name} 重新分块完成`);
+      } catch (error) {
+        console.error(`[Rechunk] 文档 ${document.name} 重新分块失败:`, error);
+        dispatch({
+          type: "SET_ERROR",
+          payload: error instanceof Error ? error.message : "重新分块失败",
+        });
+        throw error;
+      } finally {
+        dispatch({ type: "SET_EMBEDDING", payload: false });
+      }
+    },
+    [isModelReady, state.documents, state.config.chunkConfig, state.config.chunkingStrategy],
+  );
+
   return (
     <AppContext.Provider
       value={{
@@ -338,6 +419,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         dispatch,
         uploadDocuments,
         deleteDocument,
+        rechunkDocument,
         sendMessage,
         updateConfig,
         clearSession,

@@ -10,10 +10,10 @@ import { useApp } from "@/context/AppContext";
 import type { Document, Chunk } from "@/types";
 import { PERFORMANCE_CONFIG } from "@/config/performance";
 import { message, Dropdown } from "antd";
-import { DeleteOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
 
 export function DocumentPanel() {
-  const { state, uploadDocuments, deleteDocument, isModelReady } = useApp();
+  const { state, uploadDocuments, deleteDocument, rechunkDocument, isModelReady } = useApp();
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
     null,
   );
@@ -144,11 +144,28 @@ export function DocumentPanel() {
     }
   };
 
+  const handleRechunkDocument = async (documentId: string) => {
+    if (!isModelReady) {
+      message.error("模型正在加载中，请稍候...");
+      return;
+    }
+
+    try {
+      await rechunkDocument(documentId);
+      message.success("重新分块完成");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "重新分块失败";
+      message.error(errorMessage);
+    }
+  };
+
   const handleMenuClick =
     (docId: string) =>
     ({ key }: { key: string }) => {
       if (key === "delete") {
         handleDeleteDocument(docId);
+      } else if (key === "rechunk") {
+        handleRechunkDocument(docId);
       }
     };
 
@@ -222,6 +239,11 @@ export function DocumentPanel() {
                   <Dropdown
                     menu={{
                       items: [
+                        {
+                          key: "rechunk",
+                          label: "重新分块",
+                          icon: <EditOutlined />,
+                        },
                         {
                           key: "delete",
                           label: "删除文件",
