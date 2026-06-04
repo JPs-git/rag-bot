@@ -7,12 +7,17 @@ import {
   useState,
 } from "react";
 import type { AppState, AppAction, Message, AppConfig } from "@/types";
-import { ChunkService } from "@/services/chunking";
+import type { UploadResult } from "@/types/upload";
 import { defaultRetrievalConfig } from "@/services/retrieval";
 import { vectorStore } from "@/services/vectorStore";
 import { embeddingService } from "@/services/embedding";
 import { llmService } from "@/services/llm";
 import { PERFORMANCE_CONFIG } from "@/config/performance";
+import {
+  Pipeline,
+  createDefaultStages,
+  type PipelineStageType,
+} from "@/services/pipeline";
 
 const defaultConfig: AppConfig = {
   chunkConfig: {
@@ -93,7 +98,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
 interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
-  uploadDocuments: (files: File[]) => Promise<void>;
+  uploadDocuments: (files: File[]) => Promise<UploadResult>;
   deleteDocument: (documentId: string) => void;
   sendMessage: (content: string) => Promise<void>;
   updateConfig: (config: Partial<AppConfig>) => void;
@@ -144,7 +149,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state.config]);
 
   const uploadDocuments = useCallback(
-    async (files: File[]) => {
+    async (files: File[]): Promise<UploadResult> => {
       dispatch({ type: "SET_ERROR", payload: null });
 
       if (!isModelReady) {
@@ -179,26 +184,84 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       dispatch({ type: "SET_EMBEDDING", payload: true });
 
-      const chunkService = new ChunkService();
-      const chunkResults = await chunkService.chunkFiles(
-        files,
-        state.config.chunkConfig,
-      );
+      const stages = createDefaultStages(vectorStore, state.config.chunkConfig);
+      const pipeline = new Pipeline(stages);
 
-      for (const result of chunkResults) {
-        dispatch({ type: "ADD_DOCUMENTS", payload: [result.document] });
-      }
+      const result: UploadResult = {
+        successCount: 0,
+        skippedCount: 0,
+        skippedFiles: [],
+        failedCount: 0,
+        failedFiles: [],
+      };
 
-      const allChunks = chunkResults.flatMap((result) => result.chunks);
+      for (const file of files) {
+        try {
+          const onProgress = (
+            stage: PipelineStageType,
+            progress: number,
+            message?: string,
+          ) => {
+            console.log(`[Pipeline] ${stage}: ${progress}% - ${message}`);
+          };
 
-      if (allChunks.length > 0) {
-        dispatch({ type: "ADD_CHUNKS", payload: allChunks });
-        await vectorStore.addChunks(allChunks);
+          const pipelineState = await pipeline.start(file, onProgress);
+
+          const chunkOutput = pipelineState.stages.chunk.output as {
+            documentId: string;
+            chunks: {
+              id: string;
+              documentId: string;
+              content: string;
+              startIndex: number;
+              endIndex: number;
+            }[];
+          };
+          if (!chunkOutput) {
+            const deduplicateOutput = pipelineState.stages.deduplicate
+              .output as {
+              isDuplicate?: boolean;
+            };
+            if (deduplicateOutput?.isDuplicate) {
+              console.log(`[Upload] 文件 ${file.name} 已存在，跳过`);
+              result.skippedCount++;
+              result.skippedFiles.push(file.name);
+              continue;
+            }
+          }
+          if (chunkOutput) {
+            const document = {
+              id: chunkOutput.documentId,
+              name: file.name,
+              content: (
+                pipelineState.stages.upload.output as { content: string }
+              ).content,
+              type: file.name.endsWith(".md")
+                ? ("md" as const)
+                : ("txt" as const),
+              size: file.size,
+              uploadedAt: new Date(),
+            };
+            dispatch({ type: "ADD_DOCUMENTS", payload: [document] });
+            dispatch({ type: "ADD_CHUNKS", payload: chunkOutput.chunks });
+            result.successCount++;
+          }
+
+          console.log(`[Upload] 文件 ${file.name} 处理完成`);
+        } catch (error) {
+          console.error(`[Upload] 文件 ${file.name} 处理失败:`, error);
+          result.failedCount++;
+          result.failedFiles.push({
+            name: file.name,
+            error: error instanceof Error ? error.message : "未知错误",
+          });
+        }
       }
 
       dispatch({ type: "SET_EMBEDDING", payload: false });
+      return result;
     },
-    [state.config.chunkConfig, isModelReady],
+    [isModelReady],
   );
 
   const sendMessage = useCallback(

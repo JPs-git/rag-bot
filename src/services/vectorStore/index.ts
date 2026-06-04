@@ -8,6 +8,8 @@ export class VectorStore {
   private vectors: Vector[] = [];
   private chunks: Chunk[] = [];
   private retrievalStrategy: RetrievalStrategy;
+  private documentHashes: Set<string> = new Set();
+  private documentIdToHash: Map<string, string> = new Map();
 
   constructor(strategy: RetrievalStrategy = new CosineSimilarityRetrieval()) {
     this.retrievalStrategy = strategy;
@@ -98,6 +100,26 @@ export class VectorStore {
   clear(): void {
     this.vectors = [];
     this.chunks = [];
+    this.documentHashes.clear();
+  }
+
+  addDocumentHash(hash: string, documentId: string): void {
+    this.documentHashes.add(hash);
+    this.documentIdToHash.set(documentId, hash);
+  }
+
+  hasDocumentHash(hash: string): boolean {
+    return this.documentHashes.has(hash);
+  }
+
+  removeDocumentHash(hash: string): void {
+    this.documentHashes.delete(hash);
+    for (const [docId, docHash] of this.documentIdToHash.entries()) {
+      if (docHash === hash) {
+        this.documentIdToHash.delete(docId);
+        break;
+      }
+    }
   }
 
   size(): number {
@@ -119,6 +141,12 @@ export class VectorStore {
 
     this.chunks = this.chunks.filter((chunk) => chunk.documentId !== documentId);
     this.vectors = this.vectors.filter((vector) => !chunkIds.includes(vector.chunkId));
+
+    const hash = this.documentIdToHash.get(documentId);
+    if (hash) {
+      this.documentHashes.delete(hash);
+      this.documentIdToHash.delete(documentId);
+    }
 
     console.log(`[VS] Deleted ${chunkIds.length} chunks for document ${documentId}`);
   }
