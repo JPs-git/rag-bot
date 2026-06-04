@@ -2,7 +2,6 @@ import { XProvider } from '@ant-design/x';
 import { Welcome, Prompts } from '@ant-design/x';
 import { ConfigProvider, Flex, Avatar } from 'antd';
 import { AppProvider, useApp } from '@/context/AppContext';
-import { FileUploader } from '@/components/FileUploader';
 import { ChatHistory } from '@/components/ChatHistory';
 import { ChatInput } from '@/components/ChatInput';
 import { ConfigPanel } from '@/components/ConfigPanel';
@@ -56,7 +55,7 @@ function ChatPanel() {
               <Prompts
                 title="快速开始"
                 items={[
-                  { key: '1', icon: <FileText size={20} />, label: '如何上传文档？', description: '在左侧面板点击上传按钮' },
+                  { key: '1', icon: <FileText size={20} />, label: '如何上传文档？', description: '在右侧面板点击上传按钮' },
                   { key: '2', icon: <Bot size={20} />, label: '什么是 RAG？', description: '检索增强生成技术' },
                 ]}
                 wrap
@@ -76,14 +75,6 @@ function Sidebar() {
 
   return (
     <Flex vertical gap={16}>
-      <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-md">
-        <Flex align="center" gap={12} className="mb-4">
-          <Avatar icon={<FileText />} style={{ backgroundColor: '#e6f4ff', color: '#1677ff' }} size={36} />
-          <h2 className="font-semibold text-gray-800 m-0">文档管理</h2>
-        </Flex>
-        <FileUploader />
-      </div>
-
       <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-md">
         <Flex align="center" gap={12} className="mb-4">
           <Avatar icon={<Settings />} style={{ backgroundColor: '#f9f0ff', color: '#722ed1' }} size={36} />
